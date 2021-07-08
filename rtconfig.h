@@ -81,7 +81,6 @@
 #define RT_USING_ADC
 #define RT_USING_SPI
 #define RT_USING_SFUD
-#define RT_SFUD_USING_SFDP
 #define RT_SFUD_USING_FLASH_INFO_TABLE
 #define RT_SFUD_SPI_MAX_HZ 50000000
 #define RT_USING_WDT
@@ -159,20 +158,24 @@
 
 /* tools packages */
 
-#define PKG_USING_EASYFLASH
-#define PKG_EASYFLASH_ENV
-#define PKG_EASYFLASH_ENV_AUTO_UPDATE
-#define PKG_EASYFLASH_ENV_VER_NUM 0
-#define PKG_EASYFLASH_ERASE_GRAN 4096
-#define PKG_EASYFLASH_WRITE_GRAN_1BIT
-#define PKG_EASYFLASH_WRITE_GRAN 1
-#define PKG_EASYFLASH_START_ADDR 0
-#define PKG_USING_EASYFLASH_V410
-#define PKG_EASYFLASH_VER_NUM 0x40100
 /* end of tools packages */
 
 /* system packages */
 
+#define PKG_USING_FAL
+#define FAL_DEBUG 0
+#define FAL_PART_HAS_TABLE_CFG
+#define FAL_USING_SFUD_PORT
+#define FAL_USING_NOR_FLASH_DEV_NAME "norflash0"
+#define PKG_USING_FAL_V00500
+#define PKG_FAL_VER_NUM 0x00500
+#define PKG_USING_FLASHDB
+#define FDB_USING_KVDB
+#define FDB_USING_FAL_MODE
+#define FDB_WRITE_GRAN_1BIT
+#define FDB_WRITE_GRAN 1
+#define PKG_USING_FLASHDB_V10000
+#define PKG_FLASHDB_VER_NUM 0x10000
 
 /* Micrium: Micrium software products porting for RT-Thread */
 

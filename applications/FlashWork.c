@@ -1,6 +1,5 @@
 #include <rtthread.h>
 #include <rtdevice.h>
-#include <easyflash.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -11,10 +10,13 @@
 #include "FlashWork.h"
 #include "status.h"
 #include "led.h"
+#include <flashdb.h>
 
 #define DBG_TAG "flash"
 #define DBG_LVL DBG_LOG
 #include <rtdbg.h>
+
+#define FDB_LOG_TAG "[sample][kvdb][basic]"
 
 typedef struct _env_list {
     char *key;
@@ -22,128 +24,245 @@ typedef struct _env_list {
 
 Device_Info Global_Device={0};
 
-rt_spi_flash_device_t fm25q128;
+struct fdb_kvdb kvdb = { 0 };
 
+rt_spi_flash_device_t fm25q128;
+//void kvdb_basic_sample(fdb_kvdb_t kvdb)
+//{
+//    struct fdb_blob blob;
+//    int boot_count = 0;
+//
+//    FDB_INFO("==================== kvdb_basic_sample ====================\n");
+//
+//    { /* GET the KV value */
+//        /* get the "boot_count" KV value */
+//        fdb_kv_get_blob(kvdb, "boot_count", fdb_blob_make(&blob, &boot_count, sizeof(boot_count)));
+//        /* the blob.saved.len is more than 0 when get the value successful */
+//        if (blob.saved.len > 0) {
+//            FDB_INFO("get the 'boot_count' value is %d\n", boot_count);
+//        } else {
+//            FDB_INFO("get the 'boot_count' failed\n");
+//        }
+//    }
+//
+//    { /* CHANGE the KV value */
+//        /* increase the boot count */
+//        boot_count ++;
+//        /* change the "boot_count" KV's value */
+//        fdb_kv_set_blob(kvdb, "boot_count", fdb_blob_make(&blob, &boot_count, sizeof(boot_count)));
+//        FDB_INFO("set the 'boot_count' value to %d\n", boot_count);
+//    }
+//
+//    FDB_INFO("===========================================================\n");
+//}
+static void lock(fdb_db_t db)
+{
+    __disable_irq();
+}
+
+static void unlock(fdb_db_t db)
+{
+    __enable_irq();
+}
+static struct fdb_default_kv_node default_kv_table[] = {
+    {"username", "armink", 0}, /* string KV */
+    {"password", "123456", 0}, /* string KV */
+};
 int flash_Init(void)
 {
+    fdb_err_t result;
     rt_hw_spi_device_attach("spi2", "spi20", GPIOB, GPIO_PIN_12);//往总线spi2上挂载一个spi20设备，cs脚：PB12
     fm25q128 = rt_sfud_flash_probe("norflash0", "spi20");//使用sfud探测spi20从设备，并且将spi20连接的flash初始化为块设备，名称为FAL_USING_NOR_FLASH_DEV_NAME
     if (RT_NULL == fm25q128)
     {
         return -RT_ERROR;
     };
+
+    struct fdb_default_kv default_kv;
+
+    default_kv.kvs = default_kv_table;
+    default_kv.num = sizeof(default_kv_table) / sizeof(default_kv_table[0]);
+    /* set the lock and unlock function if you want */
+    //fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_LOCK, (void *)lock);
+    //fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_UNLOCK, (void *)unlock);
+
+    result = fdb_kvdb_init(&kvdb, "env", "fdb_kvdb1", &default_kv, NULL);
+
+    if (result != FDB_NO_ERR) {
+        return RT_ERROR;
+    }
+    //kvdb_basic_sample(&kvdb);
     return RT_EOK;
-}
-void Boot_Times_Record(void)
-{
-    uint32_t i_boot_times = 0;
-    char *c_old_boot_times, c_new_boot_times[11] = {0};
 
-    /* 从环境变量中获取启动次数 */
-    c_old_boot_times = ef_get_env("boot_times");
-    /* 获取启动次数是否失败 */
-    if (c_old_boot_times == RT_NULL)
-        c_old_boot_times[0] = '0';
-
-    i_boot_times = atol(c_old_boot_times);
-    /* 启动次数加 1 */
-    i_boot_times++;
-    LOG_D("===============================================");
-    LOG_D("The system now boot %d times", i_boot_times);
-    LOG_D("===============================================");
-    /* 数字转字符串 */
-    sprintf(c_new_boot_times, "%ld", i_boot_times);
-    /* 保存开机次数的值 */
-    ef_set_env("boot_times", c_new_boot_times);
 }
-uint32_t Flash_Get_Boot_Times(void)
-{
-    const char *keybuf="boot_times";
-    char *read_value_temp;//真实值
-    uint32_t read_value = 0;
-    read_value_temp = strdup(ef_get_env(keybuf));
-    read_value = atol(read_value_temp);
-    rt_free(read_value_temp);//释放临时buffer对应内存空间
-    LOG_D("Reading Key %s value %ld \r\n", keybuf, read_value);//输出
-    return read_value;
-}
-MSH_CMD_EXPORT(Flash_Get_Boot_Times,Flash_Get_Boot_Times);
+//void Boot_Times_Record(void)
+//{
+//    uint32_t i_boot_times = 0;
+//    char *c_old_boot_times, c_new_boot_times[11] = {0};
+//
+//    /* 从环境变量中获取启动次数 */
+//    c_old_boot_times = ef_get_env("boot_times");
+//    /* 获取启动次数是否失败 */
+//    if (c_old_boot_times == RT_NULL)
+//        c_old_boot_times[0] = '0';
+//
+//    i_boot_times = atol(c_old_boot_times);
+//    /* 启动次数加 1 */
+//    i_boot_times++;
+//    LOG_D("===============================================");
+//    LOG_D("The system now boot %d times", i_boot_times);
+//    LOG_D("===============================================");
+//    /* 数字转字符串 */
+//    sprintf(c_new_boot_times, "%ld", i_boot_times);
+//    /* 保存开机次数的值 */
+//    ef_set_env("boot_times", c_new_boot_times);
+//}
+//uint32_t Flash_Get_Boot_Times(void)
+//{
+//    const char *keybuf="boot_times";
+//    char *read_value_temp;//真实值
+//    uint32_t read_value = 0;
+//    read_value_temp = strdup(ef_get_env(keybuf));
+//    read_value = atol(read_value_temp);
+//    rt_free(read_value_temp);//释放临时buffer对应内存空间
+//    LOG_D("Reading Key %s value %ld \r\n", keybuf, read_value);//输出
+//    return read_value;
+//}
+//MSH_CMD_EXPORT(Flash_Get_Boot_Times,Flash_Get_Boot_Times);
 uint32_t Flash_Get_Learn_Nums(void)
 {
-    const char *keybuf="Learn_Nums";
-    char *read_value_temp;//真实值
-    uint32_t read_value = 0;
-    read_value_temp = strdup(ef_get_env(keybuf));
-    read_value = atol(read_value_temp);
-    rt_free(read_value_temp);//释放临时buffer对应内存空间
-    LOG_D("Reading Key %s value %ld \r\n", keybuf, read_value);//输出
-    return read_value;
+//    const char *keybuf="Learn_Nums";
+//    char *read_value_temp;//真实值
+//    uint32_t read_value = 0;
+//    read_value_temp = strdup(ef_get_env(keybuf));
+//    read_value = atol(read_value_temp);
+//    rt_free(read_value_temp);//释放临时buffer对应内存空间
+//    LOG_D("Reading Key %s value %ld \r\n", keybuf, read_value);//输出
+//    return read_value;
+
+    struct fdb_blob blob;
+    int value = 0;
+    /* get the "boot_count" KV value */
+    fdb_kv_get_blob(&kvdb, "Learn_Nums", fdb_blob_make(&blob, &value, sizeof(value)));
+    /* the blob.saved.len is more than 0 when get the value successful */
+    if (blob.saved.len > 0) {
+        FDB_INFO("get the 'Learn_Nums' value is %d\n", value);
+        return value;
+    } else {
+        FDB_INFO("get the 'Learn_Nums' failed\n");
+        return 0;
+    }
 }
 uint32_t Flash_Get_Door_Nums(void)
 {
-    char *keybuf = rt_malloc(20);
-    sprintf(keybuf, "%d", 88888888);//将传入的数字转换成数组
-    char *read_value_temp;//真实值
-    uint32_t read_value = 0;
-    read_value_temp = strdup(ef_get_env(keybuf));
-    read_value = atol(read_value_temp);
-    rt_free(read_value_temp);//释放临时buffer对应内存空间
-    LOG_D("Reading Key %s value %ld \r\n", keybuf, read_value);//输出
-    return read_value;
+//    char *keybuf = rt_malloc(20);
+//    sprintf(keybuf, "%d", 88888888);//将传入的数字转换成数组
+//    char *read_value_temp;//真实值
+//    uint32_t read_value = 0;
+//    read_value_temp = strdup(ef_get_env(keybuf));
+//    read_value = atol(read_value_temp);
+//    rt_free(read_value_temp);//释放临时buffer对应内存空间
+//    LOG_D("Reading Key %s value %ld \r\n", keybuf, read_value);//输出
+//    return read_value;
+
+    struct fdb_blob blob;
+    int value = 0;
+    /* get the "boot_count" KV value */
+    fdb_kv_get_blob(&kvdb, "88888888", fdb_blob_make(&blob, &value, sizeof(value)));
+    /* the blob.saved.len is more than 0 when get the value successful */
+    if (blob.saved.len > 0) {
+        FDB_INFO("get the 'Door_Num' value is %d\n", value);
+        return value;
+    } else {
+        FDB_INFO("get the 'Door_Num' failed\n");
+        return 0;
+    }
 }
 uint32_t Flash_Get_Moto_Flag(void)
 {
-    const char *keybuf="Moto";
-    char *read_value_temp;//真实值
-    uint32_t read_value = 0;
-    read_value_temp = strdup(ef_get_env(keybuf));
-    read_value = atol(read_value_temp);
-    rt_free(read_value_temp);//释放临时buffer对应内存空间
-    LOG_D("Reading Key %s value %ld \r\n", keybuf, read_value);//输出
-    return read_value;
+//    const char *keybuf="Moto";
+//    char *read_value_temp;//真实值
+//    uint32_t read_value = 0;
+//    read_value_temp = strdup(ef_get_env(keybuf));
+//    read_value = atol(read_value_temp);
+//    rt_free(read_value_temp);//释放临时buffer对应内存空间
+//    LOG_D("Reading Key %s value %ld \r\n", keybuf, read_value);//输出
+//    return read_value;
+    struct fdb_blob blob;
+    int value = 0;
+    /* get the "boot_count" KV value */
+    fdb_kv_get_blob(&kvdb, "Moto", fdb_blob_make(&blob, &value, sizeof(value)));
+    /* the blob.saved.len is more than 0 when get the value successful */
+    if (blob.saved.len > 0) {
+        FDB_INFO("get the 'Moto' value is %d\n", value);
+        return value;
+    } else {
+        FDB_INFO("get the 'Moto' failed\n");
+        return 0;
+    }
 }
 uint32_t Flash_Get_Key_Value(uint32_t key)
 {
     char *keybuf = rt_malloc(20);
     sprintf(keybuf, "%ld", key);//将传入的数字转换成数组
-    char *read_value_temp;//真实值
-    uint32_t read_value = 0;
-    read_value_temp = strdup(ef_get_env(keybuf));
-    read_value = atol(read_value_temp);
-    rt_free(keybuf);//释放临时buffer对应内存空间
-    rt_free(read_value_temp);//释放临时buffer对应内存空间
-    LOG_D("Reading Key %d value %ld \r\n", key, read_value);//输出
-    return read_value;
+//    char *read_value_temp;//真实值
+//    uint32_t read_value = 0;
+//    read_value_temp = strdup(ef_get_env(keybuf));
+//    read_value = atol(read_value_temp);
+//    rt_free(keybuf);//释放临时buffer对应内存空间
+//    rt_free(read_value_temp);//释放临时buffer对应内存空间
+//    LOG_D("Reading Key %d value %ld \r\n", key, read_value);//输出
+//    return read_value;
+    struct fdb_blob blob;
+    int value = 0;
+    /* get the "boot_count" KV value */
+    fdb_kv_get_blob(&kvdb, keybuf, fdb_blob_make(&blob, &value, sizeof(value)));
+    /* the blob.saved.len is more than 0 when get the value successful */
+    if (blob.saved.len > 0) {
+        FDB_INFO("get the '%s' value is %d\n", keybuf,value);
+        rt_free(keybuf);
+        return value;
+    } else {
+        FDB_INFO("get the '%s failed\n",keybuf);
+        rt_free(keybuf);
+        return 0;
+    }
 }
 void Flash_Key_Change(uint32_t key,uint32_t value)
 {
+    struct fdb_blob blob;
     char *Temp_KeyBuf = rt_malloc(20);
     sprintf(Temp_KeyBuf, "%ld", key);
-    char *Temp_ValueBuf = rt_malloc(20);//申请临时buffer空间
-    sprintf(Temp_ValueBuf, "%ld", value);
-    ef_set_env(Temp_KeyBuf, Temp_ValueBuf);
+//    char *Temp_ValueBuf = rt_malloc(20);//申请临时buffer空间
+//    sprintf(Temp_ValueBuf, "%ld", value);
+    fdb_kv_set_blob(&kvdb, Temp_KeyBuf, fdb_blob_make(&blob, &value, sizeof(value)));
+    //ef_set_env(Temp_KeyBuf, Temp_ValueBuf);
     rt_free(Temp_KeyBuf);
-    rt_free(Temp_ValueBuf);
+    //rt_free(Temp_ValueBuf);
     LOG_D("Writing %ld to key %ld \r\n", value,key);
 }
 void Flash_LearnNums_Change(uint32_t value)
 {
-    const char *keybuf="Learn_Nums";
-    char *Temp_ValueBuf = rt_malloc(10);
-    sprintf(Temp_ValueBuf, "%ld", value);
-    ef_set_env(keybuf, Temp_ValueBuf);
-    rt_free(Temp_ValueBuf);
-    LOG_D("Writing %ld to key %s\r\n", value,keybuf);
+    struct fdb_blob blob;
+    //const char *keybuf="Learn_Nums";
+    //char *Temp_ValueBuf = rt_malloc(10);
+    //sprintf(Temp_ValueBuf, "%ld", value);
+    //ef_set_env(keybuf, Temp_ValueBuf);
+    fdb_kv_set_blob(&kvdb, "Learn_Nums", fdb_blob_make(&blob, &value, sizeof(value)));
+    //rt_free(Temp_ValueBuf);
+    LOG_D("Writing %ld to key Learn_Nums\r\n", value);
 }
 void Flash_Moto_Change(uint8_t value)
 {
-    char *keybuf="Moto";
-    char *Temp_ValueBuf = rt_malloc(10);
-    sprintf(Temp_ValueBuf, "%d", value);
+    struct fdb_blob blob;
+//    char *keybuf="Moto";
+//    char *Temp_ValueBuf = rt_malloc(10);
+//    sprintf(Temp_ValueBuf, "%d", value);
     LOG_D("Start write\r\n");
-    ef_set_env(keybuf, Temp_ValueBuf);
-    rt_free(Temp_ValueBuf);
-    LOG_D("Writing %ld to key %s\r\n", value,keybuf);
+    fdb_kv_set_blob(&kvdb, "Moto", fdb_blob_make(&blob, &value, sizeof(value)));
+    //ef_set_env(keybuf, Temp_ValueBuf);
+    //rt_free(Temp_ValueBuf);
+    LOG_D("Writing %ld to key Moto\r\n", value);
 }
 //void Flash_Moto1Total_Add(void)
 //{
@@ -211,51 +330,101 @@ void Flash_Moto_Change(uint8_t value)
 //}
 uint8_t Device_RssiGet(uint32_t Device_ID)
 {
+    struct fdb_blob blob;
     char *keybuf = rt_malloc(20);
     sprintf(keybuf, "Rssi:%ld", Device_ID);//将传入的数字转换成数组
-    char *read_value_temp;//真实值
-    uint32_t read_value = 0;
-    read_value_temp = strdup(ef_get_env(keybuf));
-    read_value = atol(read_value_temp);
-    rt_free(keybuf);//释放临时buffer对应内存空间
-    rt_free(read_value_temp);//释放临时buffer对应内存空间
-    LOG_D("Reading Rssi %d value %ld \r\n", Device_ID, read_value);//输出
-    return read_value;
+    int value = 0;
+    /* get the "boot_count" KV value */
+    fdb_kv_get_blob(&kvdb, keybuf, fdb_blob_make(&blob, &value, sizeof(value)));
+    /* the blob.saved.len is more than 0 when get the value successful */
+    if (blob.saved.len > 0) {
+        FDB_INFO("get the '%s' value is %d\n", keybuf,value);
+        return value;
+    } else {
+        FDB_INFO("get the '%s' failed\n",keybuf);
+        return 0;
+    }
+//    char *read_value_temp;//真实值
+//    uint32_t read_value = 0;
+//    read_value_temp = strdup(ef_get_env(keybuf));
+//    read_value = atol(read_value_temp);
+//    rt_free(keybuf);//释放临时buffer对应内存空间
+//    rt_free(read_value_temp);//释放临时buffer对应内存空间
+//    LOG_D("Reading Rssi %d value %ld \r\n", Device_ID, read_value);//输出
+//    return read_value;
 }
 void Device_RssiChange(uint32_t Device_ID,uint8_t value)
 {
     char *Temp_KeyBuf = rt_malloc(20);
-    char *Temp_ValueBuf = rt_malloc(20);
+//    char *Temp_ValueBuf = rt_malloc(20);
     sprintf(Temp_KeyBuf, "Rssi:%ld", Device_ID);
-    sprintf(Temp_ValueBuf, "%d", value);
-    ef_set_env(Temp_KeyBuf, Temp_ValueBuf);
-    rt_free(Temp_KeyBuf);
-    rt_free(Temp_ValueBuf);
-    LOG_D("Writing Rssi %d to key %ld\r\n", value,Device_ID);
+//    sprintf(Temp_ValueBuf, "%d", value);
+//    ef_set_env(Temp_KeyBuf, Temp_ValueBuf);
+//    rt_free(Temp_KeyBuf);
+//    rt_free(Temp_ValueBuf);
+//    LOG_D("Writing Rssi %d to key %ld\r\n", value,Device_ID);
+    struct fdb_blob blob;
+//    char *keybuf="Moto";
+//    char *Temp_ValueBuf = rt_malloc(10);
+//    sprintf(Temp_ValueBuf, "%d", value);
+    fdb_kv_set_blob(&kvdb, Temp_KeyBuf, fdb_blob_make(&blob, &value, sizeof(value)));
+    //ef_set_env(keybuf, Temp_ValueBuf);
+    //rt_free(Temp_ValueBuf);
+    LOG_D("Writing %ld to key %s\r\n", value,Temp_KeyBuf);
 }
 uint8_t Device_BatGet(uint32_t Device_ID)
 {
+//    char *keybuf = rt_malloc(20);
+//    sprintf(keybuf, "Bat:%ld", Device_ID);//将传入的数字转换成数组
+//    char *read_value_temp;//真实值
+//    uint32_t read_value = 0;
+//    read_value_temp = strdup(ef_get_env(keybuf));
+//    read_value = atol(read_value_temp);
+//    rt_free(keybuf);//释放临时buffer对应内存空间
+//    rt_free(read_value_temp);//释放临时buffer对应内存空间
+//    LOG_D("Reading Bat %d value %ld \r\n", Device_ID, read_value);//输出
+//    return read_value;
+    struct fdb_blob blob;
     char *keybuf = rt_malloc(20);
     sprintf(keybuf, "Bat:%ld", Device_ID);//将传入的数字转换成数组
-    char *read_value_temp;//真实值
-    uint32_t read_value = 0;
-    read_value_temp = strdup(ef_get_env(keybuf));
-    read_value = atol(read_value_temp);
-    rt_free(keybuf);//释放临时buffer对应内存空间
-    rt_free(read_value_temp);//释放临时buffer对应内存空间
-    LOG_D("Reading Bat %d value %ld \r\n", Device_ID, read_value);//输出
-    return read_value;
+    int value = 0;
+    /* get the "boot_count" KV value */
+    fdb_kv_get_blob(&kvdb, keybuf, fdb_blob_make(&blob, &value, sizeof(value)));
+    /* the blob.saved.len is more than 0 when get the value successful */
+    if (blob.saved.len > 0) {
+        FDB_INFO("get the '%s' value is %d\n", keybuf,value);
+        return value;
+    } else {
+        FDB_INFO("get the '%s' failed\n",keybuf);
+        return 0;
+    }
 }
 void Device_BatChange(uint32_t Device_ID,uint8_t value)
 {
     char *Temp_KeyBuf = rt_malloc(20);
-    char *Temp_ValueBuf = rt_malloc(20);
+//    char *Temp_ValueBuf = rt_malloc(20);
     sprintf(Temp_KeyBuf, "Bat:%ld", Device_ID);
-    sprintf(Temp_ValueBuf, "%d", value);
-    ef_set_env(Temp_KeyBuf, Temp_ValueBuf);
-    rt_free(Temp_KeyBuf);
-    rt_free(Temp_ValueBuf);
-    LOG_D("Writing Bat %ld to key %d\r\n", value,Device_ID);
+//    sprintf(Temp_ValueBuf, "%d", value);
+//    ef_set_env(Temp_KeyBuf, Temp_ValueBuf);
+//    rt_free(Temp_KeyBuf);
+//    rt_free(Temp_ValueBuf);
+//    LOG_D("Writing Rssi %d to key %ld\r\n", value,Device_ID);
+    struct fdb_blob blob;
+//    char *keybuf="Moto";
+//    char *Temp_ValueBuf = rt_malloc(10);
+//    sprintf(Temp_ValueBuf, "%d", value);
+    fdb_kv_set_blob(&kvdb, Temp_KeyBuf, fdb_blob_make(&blob, &value, sizeof(value)));
+    //ef_set_env(keybuf, Temp_ValueBuf);
+    //rt_free(Temp_ValueBuf);
+    LOG_D("Writing %ld to key %s\r\n", value,Temp_KeyBuf);
+//    char *Temp_KeyBuf = rt_malloc(20);
+//    char *Temp_ValueBuf = rt_malloc(20);
+//    sprintf(Temp_KeyBuf, "Bat:%ld", Device_ID);
+//    sprintf(Temp_ValueBuf, "%d", value);
+//    ef_set_env(Temp_KeyBuf, Temp_ValueBuf);
+//    rt_free(Temp_KeyBuf);
+//    rt_free(Temp_ValueBuf);
+//    LOG_D("Writing Bat %ld to key %d\r\n", value,Device_ID);
 }
 uint8_t Add_Device(uint32_t Device_ID)
 {
@@ -517,15 +686,15 @@ void LoadDevice2Memory(void)//数据载入到内存中
     memset(&Global_Device,0,sizeof(Global_Device));
     Global_Device.Num = Flash_Get_Learn_Nums();
     LOG_D("num is %d",Global_Device.Num);
-    for(uint8_t i=1;i<=Global_Device.Num;i++)
-    {
-        Global_Device.ID[i] = Flash_Get_Key_Value(i);
-        LOG_D("GOT ID is %ld\r\n",Global_Device.ID[i]);
-        Global_Device.Bat[i] = Device_BatGet(Global_Device.ID[i]);
-        LOG_D("GOT Bat is %ld\r\n",Global_Device.Bat[i]);
-        Global_Device.Rssi[i] = Device_RssiGet(Global_Device.ID[i]);
-        LOG_D("GOT Rssi is %ld\r\n",Global_Device.Rssi[i]);
-    }
+//    for(uint8_t i=1;i<=Global_Device.Num;i++)
+//    {
+//        Global_Device.ID[i] = Flash_Get_Key_Value(i);
+//        LOG_D("GOT ID is %ld\r\n",Global_Device.ID[i]);
+//        Global_Device.Bat[i] = Device_BatGet(Global_Device.ID[i]);
+//        LOG_D("GOT Bat is %ld\r\n",Global_Device.Bat[i]);
+//        Global_Device.Rssi[i] = Device_RssiGet(Global_Device.ID[i]);
+//        LOG_D("GOT Rssi is %ld\r\n",Global_Device.Rssi[i]);
+//    }
     Global_Device.DoorID = Flash_Get_Key_Value(88888888);
     Global_Device.LastFlag = Flash_Get_Moto_Flag();
 }

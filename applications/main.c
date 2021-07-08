@@ -15,7 +15,6 @@
 #include "device.h"
 #include "led.h"
 #include "work.h"
-#include "easyflash.h"
 #include "flashwork.h"
 #include "key.h"
 #include "moto.h"
@@ -34,17 +33,17 @@ int main(void)
     button_Init();
     Key_Reponse();
     flash_Init();
-    easyflash_init();
+    //easyflash_init();
     LoadDevice2Memory();
     led_Init();
     Moto_Init();
     //wdt_sample();
     Delay_Timer_Init();
-    RTC_Init();
+    //RTC_Init();
     WarningInit();
     WaterScan_Init();
     Radio_Task_Init();
-    ADC_Init();
+    //ADC_Init();
     while (1)
     {
         rt_thread_mdelay(1000);

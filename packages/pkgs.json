@@ -1,8 +1,13 @@
 [
  {
-  "path": "/packages/tools/EasyFlash", 
-  "ver": "v4.1.0", 
-  "name": "EASYFLASH"
+  "path": "/packages/system/fal", 
+  "ver": "v0.5.0", 
+  "name": "FAL"
+ }, 
+ {
+  "path": "/packages/system/FlashDB", 
+  "ver": "v1.0.0", 
+  "name": "FLASHDB"
  }, 
  {
   "path": "/packages/peripherals/button", 

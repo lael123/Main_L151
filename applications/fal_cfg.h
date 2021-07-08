@@ -28,10 +28,9 @@
 #include <rtconfig.h>
 #include <board.h>
 
-#define NOR_FLASH_DEV_NAME             "norflash0"
 
 /* ===================== Flash device Configuration ========================= */
-struct fal_flash_dev nor_flash0;
+extern struct fal_flash_dev nor_flash0;
 
 /* flash device table */
 #define FAL_FLASH_DEV_TABLE                                          \
@@ -41,10 +40,9 @@ struct fal_flash_dev nor_flash0;
 /* ====================== Partition Configuration ========================== */
 #ifdef FAL_PART_HAS_TABLE_CFG
 /* partition table */
-#define FAL_PART_TABLE                                                               \
-{                                                                                    \
-    {FAL_PART_MAGIC_WORD, "easyflash", NOR_FLASH_DEV_NAME,         0, 1024*1024, 0}, \
-    {FAL_PART_MAGIC_WORD,  "download", NOR_FLASH_DEV_NAME, 1024*1024, 1024*1024, 0}, \
+#define FAL_PART_TABLE                                                                 \
+{                                                                                      \
+    {FAL_PART_MAGIC_WROD,  "fdb_kvdb1",       "norflash0",           0, 2*1024*1024, 0}, \
 }
 #endif /* FAL_PART_HAS_TABLE_CFG */
 
